@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuizNest By Tahsin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+    <div x-data="{
+        step: 'welcome',
+        category: 'any',
+        difficulty: 'any',
+        numberOfQuestions: 10,
+        questions: [],
+        currentQuestion: 0,
+        score: 0,
+        selectedAnswer: null,
+        timer: 0,
+        timerInterval: null,
+        answers: [],
+
+        async startQuiz() {
+            let url = `https://opentdb.com/api.php?amount=${this.numberOfQuestions}`;
+            if (this.category !== 'any') url += `&category=${this.category}`;
+            if (this.difficulty !== 'any') url += `&difficulty=${this.difficulty}`;
+            
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            // Decode HTML entities in questions and answers
+            this.questions = data.results.map(q => ({
+                ...q,
+                question: this.decodeHTML(q.question),
+                correct_answer: this.decodeHTML(q.correct_answer),
+                incorrect_answers: q.incorrect_answers.map(a => this.decodeHTML(a))
+            }));
+            
+            this.step = 'quiz';
+            this.startTimer();
+        },
+
+        decodeHTML(html) {
+            const txt = document.createElement('textarea');
+            txt.innerHTML = html;
+            return txt.value;
+        },
+
+        startTimer() {
+            this.timer = 0;
+            this.timerInterval = setInterval(() => {
+                this.timer++;
+            }, 1000);
+        },
+
+        formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        },
+
+        checkAnswer(answer) {
+            this.selectedAnswer = answer;
+            if (answer === this.questions[this.currentQuestion].correct_answer) {
+                this.score++;
+            }
+            this.answers.push({
+                question: this.questions[this.currentQuestion].question,
+                correct_answer: this.questions[this.currentQuestion].correct_answer,
+                user_answer: answer
+            });
+        },
+
+        nextQuestion() {
+            this.selectedAnswer = null;
+            if (this.currentQuestion < this.questions.length - 1) {
+                this.currentQuestion++;
+            } else {
+                clearInterval(this.timerInterval);
+                this.step = 'result';
+            }
+        },
+
+        getShuffledAnswers() {
+            if (!this.questions[this.currentQuestion]) return [];
+            const answers = [
+                ...this.questions[this.currentQuestion].incorrect_answers,
+                this.questions[this.currentQuestion].correct_answer
+            ];
+            return answers.sort(() => Math.random() - 0.5);
+        }
+    }" class="w-full max-w-4xl">
+        <!-- Welcome Screen -->
+        <div x-show="step === 'welcome'" class="bg-white rounded-lg shadow-xl p-8">
+            <h1 class="text-3xl font-bold text-center mb-8 text-indigo-600">Welcome to the QuizNest!</h1>
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Select Category</label>
+                    <select x-model="category" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500">
+                        <option value="any">Any Category</option>
+                        <option value="9">General Knowledge</option>
+                        <option value="10">Entertainment: Books</option>
+                        <option value="11">Entertainment: Film</option>
+                        <option value="12">Entertainment: Music</option>
+                        <option value="13">Entertainment: Musicals & Theatres</option>
+                        <option value="14">Entertainment: Television</option>
+                        <option value="15">Entertainment: Video Games</option>
+                        <option value="16">Entertainment: Board Games</option>
+                        <option value="17">Science & Nature</option>
+                        <option value="18">Science: Computers</option>
+                        <option value="19">Science: Mathematics</option>
+                        <option value="20">Mythology</option>
+                        <option value="21">Sports</option>
+                        <option value="22">Geography</option>
+                        <option value="23">History</option>
+                        <option value="24">Politics</option>
+                        <option value="25">Art</option>
+                        <option value="26">Celebrities</option>
+                        <option value="27">Animals</option>
+                        <option value="28">Vehicles</option>
+                        <option value="29">Entertainment: Comics</option>
+                        <option value="30">Science: Gadgets</option>
+                        <option value="31">Entertainment: Japanese Anime & Manga</option>
+                        <option value="32">Entertainment: Cartoon & Animations</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Select Difficulty</label>
+                    <select x-model="difficulty" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500">
+                        <option value="any">Any Difficulty</option>
+                        <option value="easy">Easy</option>
+                        <option value="medium">Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Number of Questions</label>
+                    <input type="number" x-model="numberOfQuestions" min="1" max="50" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <button @click="startQuiz()" class="w-full bg-indigo-600 text-white py-3 rounded-md hover:bg-indigo-700 transition duration-200">Start Quiz</button>
+            </div>
+        </div>
+
+        <!-- Quiz Screen -->
+        <div x-show="step === 'quiz'" class="bg-white rounded-lg shadow-xl p-8">
+            <div class="flex justify-between items-center mb-6">
+                <div class="text-lg font-semibold">Question <span x-text="currentQuestion + 1"></span>/<span x-text="questions.length"></span></div>
+                <div class="text-lg font-semibold">Time: <span x-text="formatTime(timer)"></span></div>
+            </div>
+            <div class="mb-8">
+                <h2 class="text-xl font-bold mb-4" x-text="questions[currentQuestion]?.question"></h2>
+                <div class="space-y-3">
+                    <template x-for="answer in getShuffledAnswers()" :key="answer">
+                        <button 
+                            @click="checkAnswer(answer)"
+                            :class="{
+                                'w-full p-4 rounded-lg text-left transition duration-200': true,
+                                'bg-gray-100 hover:bg-gray-200': selectedAnswer === null,
+                                'bg-green-500 text-white': selectedAnswer === answer && answer === questions[currentQuestion].correct_answer,
+                                'bg-red-500 text-white': selectedAnswer === answer && answer !== questions[currentQuestion].correct_answer,
+                                'opacity-50 cursor-not-allowed': selectedAnswer !== null
+                            }"
+                            :disabled="selectedAnswer !== null"
+                            x-text="answer"
+                        ></button>
+                    </template>
+                </div>
+            </div>
+            <button 
+                x-show="selectedAnswer !== null"
+                @click="nextQuestion()"
+                class="w-full bg-indigo-600 text-white py-3 rounded-md hover:bg-indigo-700 transition duration-200"
+            >Next Question</button>
+        </div>
+
+        <!-- Result Screen -->
+        <div x-show="step === 'result'" class="bg-white rounded-lg shadow-xl p-8">
+            <h2 class="text-3xl font-bold text-center mb-8">Quiz Complete!</h2>
+            <div class="text-center mb-8">
+                <p class="text-2xl font-semibold">Your Score: <span x-text="score"></span>/<span x-text="questions.length"></span></p>
+                <p class="text-lg">Time Taken: <span x-text="formatTime(timer)"></span></p>
+            </div>
+            <div class="space-y-6">
+                <template x-for="(answer, index) in answers" :key="index">
+                    <div class="border rounded-lg p-4">
+                        <p class="font-semibold mb-2" x-text="answer.question"></p>
+                        <p class="text-sm">
+                            Your Answer: <span :class="answer.user_answer === answer.correct_answer ? 'text-green-600' : 'text-red-600'" x-text="answer.user_answer"></span>
+                        </p>
+                        <p class="text-sm" x-show="answer.user_answer !== answer.correct_answer">
+                            Correct Answer: <span class="text-green-600" x-text="answer.correct_answer"></span>
+                        </p>
+                    </div>
+                </template>
+            </div>
+            <button 
+                @click="step = 'welcome'; currentQuestion = 0; score = 0; selectedAnswer = null; answers = [];"
+                class="w-full bg-indigo-600 text-white py-3 rounded-md hover:bg-indigo-700 transition duration-200 mt-8"
+            >Try Again</button>
+        </div>
+    </div>
+</body>
+</html>
